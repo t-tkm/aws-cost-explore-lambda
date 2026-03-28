@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Notify AWS billing to Teams using Lambda
+
+Globals:
+  Function:
+    Timeout: 120  # P2: 60 → 120秒に延長（外部API5回分のバッファ）
+
+Parameters:
+  UseTeamsPost:
+    Type: String
+    Description: "Teams通知を有効にするフラグ (yes/no)"
+    Default: "no"
+    AllowedValues:
+      - "yes"
+      - "no"
+  TeamsWebhookSecretArn:
+    Type: String
+    Default: ""
+    Description: >
+      Teams Webhook URLを格納した Secrets Manager シークレットの ARN。
+      UseTeamsPost=yes の場合は必須。
+      事前に `aws secretsmanager create-secret --name teams-webhook-url --secret-string <URL>` で作成すること。
+
+Conditions:
+  TeamsPostEnabled: !Equals [!Ref UseTeamsPost, "yes"]
+
+Resources:
+
+  # -----------------------------------------------------------------------
+  # P1-1: Dead Letter Queue — Lambda 失敗時にイベントを 14 日間保持
+  # -----------------------------------------------------------------------
+  BillingNotificationDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: billing-notification-dlq
+      MessageRetentionPeriod: 1209600  # 14日間
+
+  # -----------------------------------------------------------------------
+  # Lambda 関数
+  # -----------------------------------------------------------------------
+  BillingNotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: app/
+      Handler: app.lambda_handler
+      Runtime: python3.12
+      Architectures:
+        - arm64  # P1-3: x86_64 → arm64（Graviton2、約20%コスト削減）
+      ReservedConcurrentExecutions: 1  # 同時実行を1に制限（コスト通知は1回で十分）
+      DeadLetterQueue:  # P1-1: 失敗イベントをDLQに送信
+        Type: SQS
+        TargetArn: !GetAtt BillingNotificationDLQ.Arn
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Sid: CostExplorerRead
+              Effect: Allow
+              Action: ce:GetCostAndUsage
+              Resource: "*"
+            - Sid: STSCallerIdentity  # P1-2: STS権限を明示（暗黙依存を排除）
+              Effect: Allow
+              Action: sts:GetCallerIdentity
+              Resource: "*"
+            - !If
+              - TeamsPostEnabled
+              - Sid: SecretsManagerRead  # P0-1: Webhook URLをSecretsManagerから取得
+                Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref TeamsWebhookSecretArn
+              - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          USE_TEAMS_POST: !Ref UseTeamsPost
+          # P0-1: Webhook URLの代わりにシークレットARNを渡す（URLをenvに置かない）
+          TEAMS_SECRET_ARN: !If
+            - TeamsPostEnabled
+            - !Ref TeamsWebhookSecretArn
+            - !Ref AWS::NoValue
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 0 * * ? *)
+            Description: "毎日00:00 UTC にAWSコスト通知を送信"
+
+  # -----------------------------------------------------------------------
+  # P1-1: Lambda エラー検知 CloudWatch Alarm
+  # -----------------------------------------------------------------------
+  LambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: billing-notification-lambda-errors
+      AlarmDescription: "BillingNotification Lambda でエラーが発生しました（DLQも確認してください）"
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref BillingNotificationFunction
+      Statistic: Sum
+      Period: 86400          # 評価期間: 1日
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+
+Outputs:
+  BillingNotificationLambdaArn:
+    Description: "ARN of the Billing Notification Lambda Function"
+    Value: !GetAtt BillingNotificationFunction.Arn
+  BillingNotificationDLQUrl:
+    Description: "URL of the Dead Letter Queue for failed Lambda invocations"
+    Value: !Ref BillingNotificationDLQ

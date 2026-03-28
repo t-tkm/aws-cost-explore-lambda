@@ -1,0 +1,18 @@
+[project]
+name = "aws-cost-explore"
+version = "0.1.0"
+description = "AWS Cost Explorer billing notification tool"
+requires-python = ">=3.11"
+dependencies = [
+    "boto3>=1.35",
+    "botocore>=1.35",
+    "requests>=2.26",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["sam/app"]

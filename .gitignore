@@ -1,0 +1,140 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment (common names)
+venv/
+env/
+ENV/
+.venv/
+.ENV/
+
+# macOS-specific
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# macOS Finder tags
+._*
+
+# macOS Thumbnails
+Thumbs.db
+ehthumbs.db
+
+# macOS-specific system files
+.Spotlight-V100
+.Trashes
+.VolumeIcon.icns
+.DS_Store
+._.DS_Store
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+*.cover
+*.py,cover
+.hypothesis/
+
+# Pytest cache
+.cache/
+*.pytest_cache/
+
+# MyPy cache
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyCharm
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VSCode
+.vscode/
+*.code-workspace
+*.history/
+
+# dotenv
+.env
+.env.*
+
+# Logs
+*.log
+
+# M1-specific compiled files or libraries
+*.dylib
+*.so
+*.o
+*.a
+*.arm64
+
+# Other IDEs and Editors
+*.swp
+*~
+*.sublime-workspace
+
+# asdf version management
+.tool-versions
+
+# Python version management
+.python-version
+
+# Additional cache or temporary files
+pip-wheel-metadata/
+pip-wheel-cache/
+__pypackages__/
+
+# SAM generated artifacts
+sam/packaged.yaml
+
+# AWS CDK
+cdk.out/
+cdk.context.json
+.context/
+*.tsbuildinfo
+
+# Node.js関連（CDKがnpmを使用している場合）
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Editor / Vim
+*.swp
+*.swo
+
+# AWS SAM CLI（sam build の出力）
+**/.aws-sam/
