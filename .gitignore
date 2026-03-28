@@ -138,3 +138,6 @@ pnpm-lock.yaml
 
 # AWS SAM CLI（sam build の出力）
 **/.aws-sam/
+
+# Claude Code
+.claude/
