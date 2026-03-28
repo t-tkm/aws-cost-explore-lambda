@@ -79,6 +79,8 @@ def get_config() -> dict:
                 raise ValueError(
                     "Teams 通知を有効にするには、TEAMS_WEBHOOK_URL（ローカル）または "
                     "TEAMS_SECRET_ARN（Secrets Manager の ARN）のいずれかを設定してください。"
+                    " ターミナルでは必ず export してください（export なしの代入は echo では見えても "
+                    "uv run の子プロセスには渡りません）。"
                 )
             try:
                 sm_client = boto3.client("secretsmanager")
