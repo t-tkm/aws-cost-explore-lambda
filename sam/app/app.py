@@ -10,6 +10,9 @@ import botocore.client
 import botocore.exceptions
 import requests
 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 # --------------------------------------------------------------------
 # 定数定義
 # --------------------------------------------------------------------
@@ -21,6 +24,7 @@ RECORD_TYPE_DIMENSION = "RECORD_TYPE"
 CREDIT_RECORD_TYPE = "Credit"
 MIN_BILLING_THRESHOLD = 0.01
 TEAMS_REQUEST_TIMEOUT_SEC = 10  # P0-2: Webhook POSTのタイムアウト（秒）
+MAX_RETRIES = 3
 
 # ロギング設定
 logging.basicConfig(level=logging.INFO)
@@ -317,19 +321,29 @@ def post_to_teams(title: str, services_cost: List[str], webhook_url: str) -> boo
             ("text", _teams_payload_text(title, services_text)),
         ]
 
+    # HTTPリトライの設定
+    session = requests.Session()
+    retries = Retry(
+        total=MAX_RETRIES,
+        backoff_factor=1,
+        status_forcelist=[500, 502, 503, 504],
+        allowed_methods=["POST"]
+    )
+    session.mount("https://", HTTPAdapter(max_retries=retries))
+
     last_error: Optional[requests.exceptions.RequestException] = None
     for idx, (name, payload) in enumerate(strategies):
         try:
             if name == "legacy_adaptive":
                 # 旧実装どおり json を文字列化して data= で送る（Incoming Webhook での表示実績あり）
-                response = requests.post(
+                response = session.post(
                     webhook_url,
                     data=json.dumps(payload, ensure_ascii=False),
                     headers={"Content-Type": "application/json"},
                     timeout=TEAMS_REQUEST_TIMEOUT_SEC,
                 )
             else:
-                response = requests.post(
+                response = session.post(
                     webhook_url,
                     json=payload,
                     headers={"Content-Type": "application/json; charset=utf-8"},
@@ -448,8 +462,12 @@ def main() -> None:
 
 def lambda_handler(event: dict, context: Any) -> dict:
     # P2: AWSベストプラクティスに合わせてレスポンスdictを返す
-    main()
-    return {"statusCode": 200, "body": "Cost report generated successfully."}
+    try:
+        main()
+        return {"statusCode": 200, "body": "Cost report generated successfully."}
+    except Exception as e:
+        logger.exception("Unexpected error occurred during execution.")
+        return {"statusCode": 500, "body": str(e)}
 
 
 if __name__ == "__main__":

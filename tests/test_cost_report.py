@@ -123,18 +123,40 @@ def test_get_cost_and_usage_credit_filter(
     )
 
 
-@patch.object(cost_report.requests, "post")
-def test_post_to_teams_falls_back_to_text_on_adaptive_failure(mock_post):
+@patch.object(cost_report.requests, "Session")
+def test_post_to_teams_falls_back_to_text_on_adaptive_failure(mock_session_cls):
+    mock_session = MagicMock()
+    mock_session_cls.return_value = mock_session
+    
     err = requests.HTTPError()
     err.response = MagicMock(status_code=400, text="adaptive rejected")
+    
     bad = MagicMock()
     bad.raise_for_status.side_effect = err
+    
     good = MagicMock()
     good.raise_for_status = MagicMock()
-    mock_post.side_effect = [bad, good]
+    
+    mock_session.post.side_effect = [bad, good]
 
     assert cost_report.post_to_teams("タイトル", ["- S3: 1.00 USD"], "https://hooks.example/webhook")
-    assert mock_post.call_count == 2
-    second_kw = mock_post.call_args_list[1][1]
+    assert mock_session.post.call_count == 2
+    second_kw = mock_session.post.call_args_list[1][1]
     assert "json" in second_kw
     assert second_kw["json"]["text"].startswith("タイトル")
+
+
+def test_lambda_handler_success():
+    with patch.object(cost_report, "main") as mock_main:
+        resp = cost_report.lambda_handler({}, None)
+        assert resp["statusCode"] == 200
+        assert "successfully" in resp["body"]
+        mock_main.assert_called_once()
+
+
+def test_lambda_handler_failure():
+    with patch.object(cost_report, "main") as mock_main:
+        mock_main.side_effect = Exception("test error")
+        resp = cost_report.lambda_handler({}, None)
+        assert resp["statusCode"] == 500
+        assert "test error" in resp["body"]
