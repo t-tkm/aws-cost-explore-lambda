@@ -154,7 +154,13 @@ Teams を使う場合（初回のみ: シークレット作成）
 # 1. Secrets Manager にシークレットを作成
 aws secretsmanager create-secret \
   --name teams-webhook-url \
-  --secret-string "https://<your-domain>/workflows/<your-webhook-url>"
+  --secret-string 'https://<your-domain>/workflows/<your-webhook-url>'
+
+# 更新の場合
+# aws secretsmanager put-secret-value \
+#  --secret-id teams-webhook-url \
+#  --secret-string 'https://<your-domain>/workflows/<your-webhook-url>'
+# secret-id は名前（teams-webhook-url）でも ARN でも可
 
 # 2. ARN を確認
 aws secretsmanager describe-secret \
