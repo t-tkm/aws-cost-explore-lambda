@@ -208,10 +208,16 @@ def get_client() -> botocore.client.BaseClient:
 def get_date_range() -> Tuple[str, str]:
     """
     集計期間を取得する。
+    Cost Explorer の TimePeriod は End が排他的で、Start は End より前である必要がある。
+    月初当日だけ Start と「今日」を End にすると同一日になり無効になるため、
+    その場合は End を月初の翌日に補正する。
     """
-    start_date = date.today().replace(day=1).isoformat()
-    end_date = date.today().isoformat()
-    return start_date, end_date
+    month_start = date.today().replace(day=1)
+    today = date.today()
+    end_date = today
+    if end_date <= month_start:
+        end_date = month_start + timedelta(days=1)
+    return month_start.isoformat(), end_date.isoformat()
 
 
 def format_service_costs(service_billings: List[Dict[str, Any]]) -> List[str]:
